@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+import os
 
 app = Flask(__name__)
 
@@ -25,5 +26,7 @@ def delete_user(index):
         return jsonify({"message": "User deleted"})
     return jsonify({"error": "Invalid index"}), 404
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
