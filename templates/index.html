@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Management API</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(99,179,255,0.4);
+    --accent: #63b3ff;
+    --accent-dim: rgba(99,179,255,0.1);
+    --accent-glow: rgba(99,179,255,0.2);
+    --text: #e8eaf0;
+    --text-muted: #7a8099;
+    --text-dim: #4a5068;
+    --success: #4ade80;
+    --success-bg: rgba(74,222,128,0.08);
+    --danger: #f87171;
+    --danger-bg: rgba(248,113,113,0.08);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .topbar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--success);
+    background: var(--success-bg);
+    border: 1px solid rgba(74,222,128,0.2);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+  }
+  .sidebar-section {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding: 0 8px;
+  }
+  .endpoint-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+  }
+  .endpoint-item:hover { background: var(--surface2); }
+  .endpoint-item.active { background: var(--accent-dim); border-color: var(--border-hover); }
+  .method-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    min-width: 42px;
+    text-align: center;
+  }
+  .get { background: rgba(74,222,128,0.15); color: var(--success); }
+  .post { background: rgba(99,179,255,0.15); color: var(--accent); }
+  .delete { background: rgba(248,113,113,0.15); color: var(--danger); }
+  .endpoint-path {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .endpoint-item.active .endpoint-path { color: var(--text); }
+
+  /* Main */
+  .main { padding: 2rem; overflow-y: auto; }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    font-family: var(--mono);
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 600; color: var(--text); }
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.success { color: var(--success); }
+
+  /* Form card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-header-title { font-size: 13px; font-weight: 500; }
+  .card-body { padding: 1.25rem; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .form-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text-dim); }
+
+  .btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--sans);
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #0a0d14; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
+  .btn-danger:hover { background: rgba(248,113,113,0.15); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: var(--mono);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: var(--success-bg); color: var(--success); border: 1px solid rgba(74,222,128,0.2); }
+  .toast.error { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
+
+  /* Users table */
+  .users-table { width: 100%; border-collapse: collapse; }
+  .users-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+    padding: 0 1rem 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .users-table td {
+    padding: 12px 1rem;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .users-table tr:last-child td { border-bottom: none; }
+  .users-table tr:hover td { background: var(--surface2); }
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1px solid var(--border-hover);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    font-family: var(--mono);
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+  .user-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  /* Response panel */
+  .response-panel {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    min-height: 80px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 12px;
+  }
+  .response-panel .key { color: var(--accent); }
+  .response-panel .str { color: var(--success); }
+  .response-panel .num { color: #f9a74b; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <span class="dot"></span>
+    flask-user-api
+    <span style="color: var(--text-dim);">v1.0</span>
+  </div>
+  <div class="status-pill">● API RUNNING</div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">Endpoints</div>
+    <div class="endpoint-item active" onclick="setActive(this)">
+      <span class="method-badge get">GET</span>
+      <span class="endpoint-path">/users</span>
+    </div>
+    <div class="endpoint-item" onclick="setActive(this)">
+      <span class="method-badge post">POST</span>
+      <span class="endpoint-path">/users</span>
+    </div>
+    <div class="endpoint-item" onclick="setActive(this)">
+      <span class="method-badge delete">DEL</span>
+      <span class="endpoint-path">/users/:id</span>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 1.5rem;">Tech Stack</div>
+    <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">Python 3</span>
+      <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">Flask</span>
+      <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">REST API</span>
+      <span style="font-family: var(--mono); font-size: 12px; color: var(--text-muted);">In-memory storage</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">User Management</div>
+    <div class="page-sub">REST API — CRUD operations on user records</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">total users</div>
+        <div class="stat-value accent" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">last added</div>
+        <div class="stat-value" id="stat-last" style="font-size:14px; padding-top:6px; color: var(--text-muted);">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">api status</div>
+        <div class="stat-value success" style="font-size:14px; padding-top:6px;">200 OK</div>
+      </div>
+    </div>
+
+    <!-- Add User -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge post">POST</span>
+        <span class="card-header-title">/users — Add new user</span>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">name</label>
+            <input class="form-input" id="inp-name" type="text" placeholder="e.g. Santhosh Reddy">
+          </div>
+          <div class="form-field">
+            <label class="form-label">email</label>
+            <input class="form-input" id="inp-email" type="email" placeholder="e.g. user@example.com">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addUser()">Add User</button>
+        <div class="response-panel" id="post-response">// Response will appear here</div>
+      </div>
+    </div>
+
+    <!-- Users List -->
+    <div class="card">
+      <div class="card-header">
+        <span class="method-badge get">GET</span>
+        <span class="card-header-title">/users — All users</span>
+        <button class="btn btn-primary" style="margin-left:auto; padding: 6px 14px; font-size: 12px;" onclick="fetchUsers()">Refresh</button>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>ID</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="4"><div class="empty-state">No users yet. Add one above.</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let users = [];
+  let nextId = 1;
+
+  function setActive(el) {
+    document.querySelectorAll('.endpoint-item').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.className = 'toast', 2200);
+  }
+
+  function formatJson(obj) {
+    return JSON.stringify(obj, null, 2)
+      .replace(/"([^"]+)":/g, '<span class="key">"$1"</span>:')
+      .replace(/: "([^"]+)"/g, ': <span class="str">"$1"</span>')
+      .replace(/: (\d+)/g, ': <span class="num">$1</span>');
+  }
+
+  function updateStats() {
+    document.getElementById('stat-total').textContent = users.length;
+    if (users.length > 0) {
+      const last = users[users.length - 1];
+      document.getElementById('stat-last').textContent = last.name.split(' ')[0];
+    }
+  }
+
+  function renderUsers() {
+    const tbody = document.getElementById('users-tbody');
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No users yet. Add one above.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>
+          <span class="user-avatar">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
+          ${u.name}
+        </td>
+        <td style="color: var(--text-muted); font-family: var(--mono); font-size: 12px;">${u.email}</td>
+        <td><span class="user-id">#${u.id}</span></td>
+        <td><button class="btn btn-danger" onclick="deleteUser(${u.id})">Delete</button></td>
+      </tr>
+    `).join('');
+    updateStats();
+  }
+
+  function addUser() {
+    const name = document.getElementById('inp-name').value.trim();
+    const email = document.getElementById('inp-email').value.trim();
+    const panel = document.getElementById('post-response');
+
+    if (!name || !email) {
+      panel.innerHTML = formatJson({ error: "Name and email are required", status: 400 });
+      showToast('Missing fields', 'error');
+      return;
+    }
+
+    const user = { id: nextId++, name, email };
+    users.push(user);
+    renderUsers();
+
+    panel.innerHTML = formatJson({ message: "User created", status: 201, user });
+    document.getElementById('inp-name').value = '';
+    document.getElementById('inp-email').value = '';
+    showToast('User added successfully', 'success');
+  }
+
+  function deleteUser(id) {
+    users = users.filter(u => u.id !== id);
+    renderUsers();
+    if (users.length === 0) document.getElementById('stat-last').textContent = '—';
+    showToast('User deleted', 'error');
+  }
+
+  function fetchUsers() {
+    const panel = document.getElementById('post-response');
+    panel.innerHTML = formatJson({ status: 200, count: users.length, users });
+    showToast('Fetched ' + users.length + ' users', 'success');
+  }
+
+  document.getElementById('inp-name').addEventListener('keydown', e => { if(e.key==='Enter') addUser(); });
+  document.getElementById('inp-email').addEventListener('keydown', e => { if(e.key==='Enter') addUser(); });
+</script>
+</body>
+</html>
